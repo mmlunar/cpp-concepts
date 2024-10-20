@@ -1,0 +1,8 @@
+# Directory to ignore
+src/.vscode/
+
+# Build files
+*.exe
+*.ilk
+*.obj
+*.pdb
