@@ -1,5 +1,6 @@
 # Directory to ignore
 src/.vscode/
+src/build/
 
 # Build files
 *.exe
