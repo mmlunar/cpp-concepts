@@ -1,9 +1,14 @@
 # Directory to ignore
 src/.vscode/
-src/build/
+.vscode
+src/build
 
 # Build files
 *.exe
 *.ilk
 *.obj
 *.pdb
+*.o
+
+#Test files
+**/test.cpp
