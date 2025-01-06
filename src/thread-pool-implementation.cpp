@@ -15,44 +15,48 @@ class ThreadPool
     int numThreads;
     bool stop;
     queue<function<void()>> tasks;
-    mutex mtx;
+    mutex threadAccessMutex;
     condition_variable cv;
     vector<thread> threads;
-  public:
-    ThreadPool(int m_Threads) : numThreads(m_Threads), stop(false)
-    {
-      statPool();
-    }
 
-    void statPool()
+    // Member function to run in the threads
+    void processTask()
     {
-      for(int i=0; i<numThreads; i++)
-      {
-        threads.emplace_back([this]()-> void
+        function<void()> task;
+        while (1)
         {
-          function<void()> task;
-          while (1) 
-          {
-            unique_lock<mutex> uniqueMutex(mtx);
-            cv.wait(uniqueMutex, [this]{return !tasks.empty() || stop;});
-            if(stop && tasks.empty())
+            unique_lock<mutex> uniqueMutex(threadAccessMutex);
+            cv.wait(uniqueMutex, [this]{ return !tasks.empty() || stop; });
+            if (stop && tasks.empty())
             {
-              cout<<"Stopping thread: "<<this_thread::get_id()<<endl;
-              return;
+                cout << "Stopping thread: " << this_thread::get_id() << endl;
+                return;
             }
             task = move(tasks.front());
             tasks.pop();
-            cout<<"Queue size: "<<tasks.size()<<endl;
+            cout << "Queue size: " << tasks.size() << endl;
             uniqueMutex.unlock();
             task();
-          }
-        });
+        }
+    }
+
+    void startPool()
+    {
+      for(int i=0; i<numThreads; i++)
+      {
+        threads.emplace_back(bind(&ThreadPool::processTask, this));
       }
+    }
+
+  public:
+    ThreadPool(int m_Threads) : numThreads(m_Threads), stop(false)
+    {
+      startPool();
     }
 
     void execute(function<void()> task)
     {
-      unique_lock<mutex> uniqueLock(mtx);
+      unique_lock<mutex> uniqueLock(threadAccessMutex);
       tasks.push(task);
       uniqueLock.unlock();
       cv.notify_one();
@@ -60,9 +64,10 @@ class ThreadPool
 
     ~ThreadPool()
     {
-      unique_lock<mutex> uniqueLock(mtx);
-      stop = true;
-      uniqueLock.unlock();
+      {
+        lock_guard<mutex> guardLock(threadAccessMutex);
+        stop = true;
+      }
       cv.notify_all();
       
       for (thread& th : threads) 
@@ -89,6 +94,6 @@ int main()
   {
     threadPool.execute(runTask);
   }
-  
+
   return 0;
 }
